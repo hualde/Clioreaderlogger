@@ -1,6 +1,12 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include "esp_http_server.h"
+
+#define WIFI_SSID "ESP32_Lizarte_AP"
+#define WIFI_PASS ""
+#define MAX_STA_CONN 4
+
 #include <inttypes.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
@@ -16,6 +22,9 @@
 #define VIN_VEHICLE_BIT BIT0
 #define VIN_COLUMN_BIT BIT1
 #define STOP_TASKS_BIT BIT2
+
+
+extern httpd_handle_t server;
 
 extern EventGroupHandle_t vin_event_group;
 extern char vin_vehiculo[VIN_LENGTH + 1];

@@ -14,5 +14,9 @@
     "idf.portWin": "COM18",
     "idf.pythonBinPathWin": "C:\\Users\\jhualde\\.espressif\\python_env\\idf5.2_py3.11_env\\Scripts\\python.exe",
     "idf.toolsPathWin": "C:\\Users\\jhualde\\.espressif",
-    "idf.flashType": "UART"
+    "idf.flashType": "UART",
+    "files.associations": {
+        "string.h": "c",
+        "esp_http_server.h": "c"
+    }
 }

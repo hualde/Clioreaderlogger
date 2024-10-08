@@ -10,6 +10,12 @@
 #include "can_utils.h"
 #include <string.h>
 
+#include "esp_http_server.h"
+#include "esp_wifi.h"
+#include "nvs_flash.h"
+
+#include "web_server.h"
+
 EventGroupHandle_t vin_event_group;
 char vin_vehiculo[VIN_LENGTH + 1];
 char vin_columna[VIN_LENGTH + 1];
@@ -21,6 +27,19 @@ void restart_timer_callback(TimerHandle_t xTimer) {
 }
 
 void app_main(void) {
+
+    // Inicializar NVS
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(ret);
+
+    // Inicializar WiFi
+    wifi_init_softap();
+
+    //codigo antiguo
     vin_event_group = xEventGroupCreate();
 
     twai_general_config_t g_config = TWAI_GENERAL_CONFIG_DEFAULT(TX_GPIO_NUM, RX_GPIO_NUM, TWAI_MODE_NORMAL);
