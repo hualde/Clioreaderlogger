@@ -6,24 +6,45 @@
 #include "config.h"
 #include <string.h>
 #include "esp_mac.h"
+#include "esp_timer.h"
 
 static const char *WEBSERVER_TAG = "webserver";
 
 httpd_handle_t server = NULL;
 
-#define LOG_BUFFER_SIZE 4096
+#define LOG_BUFFER_SIZE 8192
 static char log_buffer[LOG_BUFFER_SIZE];
 static int log_buffer_index = 0;
 
 static void add_to_log_buffer(const char *log_message) {
-    size_t len = strlen(log_message);
-    if (log_buffer_index + len >= LOG_BUFFER_SIZE) {
-        log_buffer_index = 0;
+    // Check if the log message contains "TWAI_EXAMPLE"
+    if (strstr(log_message, "TWAI_EXAMPLE") != NULL) {
+        char timestamp[32];
+        uint64_t time = esp_timer_get_time();
+        snprintf(timestamp, sizeof(timestamp), "[%llu] ", time / 1000000);
+
+        size_t timestamp_len = strlen(timestamp);
+        size_t msg_len = strlen(log_message);
+        size_t total_len = timestamp_len + msg_len + 1; // +1 for newline
+
+        if (log_buffer_index + total_len >= LOG_BUFFER_SIZE) {
+            // If buffer is full, remove old logs
+            memmove(log_buffer, log_buffer + total_len, LOG_BUFFER_SIZE - total_len);
+            log_buffer_index = LOG_BUFFER_SIZE - total_len;
+        }
+
+        // Add timestamp
+        memcpy(log_buffer + log_buffer_index, timestamp, timestamp_len);
+        log_buffer_index += timestamp_len;
+
+        // Add log message
+        memcpy(log_buffer + log_buffer_index, log_message, msg_len);
+        log_buffer_index += msg_len;
+
+        // Add newline
+        log_buffer[log_buffer_index++] = '\n';
+        log_buffer[log_buffer_index] = '\0';
     }
-    strncpy(log_buffer + log_buffer_index, log_message, LOG_BUFFER_SIZE - log_buffer_index - 1);
-    log_buffer_index += len;
-    log_buffer[log_buffer_index++] = '\n';
-    log_buffer[LOG_BUFFER_SIZE - 1] = '\0';
 }
 
 static void log_output_func(const char *fmt, va_list args) {
@@ -34,17 +55,17 @@ static void log_output_func(const char *fmt, va_list args) {
 
 static esp_err_t root_get_handler(httpd_req_t *req)
 {
-    char *html_start = "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>ESP32 Webserver</title><style>body{font-family:Arial,sans-serif;line-height:1.6;padding:20px;max-width:800px;margin:0 auto;background-color:#f4f4f4}h1{color:#333}pre{background-color:#e4e4e4;padding:10px;border-radius:5px;white-space:pre-wrap;word-wrap:break-word}.info{background-color:#d4edda;border-color:#c3e6cb;color:#155724;padding:10px;border-radius:5px;margin-bottom:20px}.logs{background-color:#fff;border:1px solid #ddd;padding:10px;border-radius:5px;max-height:400px;overflow-y:auto}</style></head><body><h1>ESP32 Webserver</h1>";
+    char *html_start = "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>ESP32 Webserver</title><style>body{font-family:Arial,sans-serif;line-height:1.6;padding:20px;max-width:800px;margin:0 auto;background-color:#f4f4f4}h1{color:#333}pre{background-color:#e4e4e4;padding:10px;border-radius:5px;white-space:pre-wrap;word-wrap:break-word}.info{background-color:#d4edda;border-color:#c3e6cb;color:#155724;padding:10px;border-radius:5px;margin-bottom:20px}.logs{background-color:#fff;border:1px solid #ddd;padding:10px;border-radius:5px;max-height:400px;overflow-y:auto}</style><script>function refreshLogs(){fetch(window.location.href).then(response=>response.text()).then(html=>{const parser=new DOMParser();const doc=parser.parseFromString(html,'text/html');document.querySelector('.logs').innerHTML=doc.querySelector('.logs').innerHTML;});}setInterval(refreshLogs,5000);</script></head><body><h1>ESP32 Webserver</h1>";
     char *html_end = "</body></html>";
 
-    char *resp_str = malloc(LOG_BUFFER_SIZE + 2048); // Increased buffer size for HTML
+    char *resp_str = malloc(LOG_BUFFER_SIZE + 2048);
     if (resp_str == NULL) {
         ESP_LOGE(WEBSERVER_TAG, "Failed to allocate memory for response");
         return ESP_ERR_NO_MEM;
     }
 
     int written = snprintf(resp_str, LOG_BUFFER_SIZE + 2048,
-             "%s<div class=\"info\"><strong>VIN del vehiculo:</strong> %s<br><strong>VIN de la columna:</strong> %s</div><h2>Logs:</h2><pre class=\"logs\">%s</pre>%s",
+             "%s<div class=\"info\"><strong>VIN del vehiculo:</strong> %s<br><strong>VIN de la columna:</strong> %s</div><h2>Logs (TWAI_EXAMPLE):</h2><pre class=\"logs\">%s</pre>%s",
              html_start, vin_vehiculo, vin_columna, log_buffer, html_end);
 
     if (written >= LOG_BUFFER_SIZE + 2048) {
@@ -129,4 +150,8 @@ void wifi_init_softap(void)
     esp_log_set_vprintf(log_output_func);
 
     start_webserver();
+
+    // Add some debug logs
+    ESP_LOGI("TWAI_EXAMPLE", "Debug: Webserver started");
+    ESP_LOGI("TWAI_EXAMPLE", "Debug: Log buffer initialized");
 }
