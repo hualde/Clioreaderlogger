@@ -11,13 +11,50 @@ static const char *WEBSERVER_TAG = "webserver";
 
 httpd_handle_t server = NULL;
 
+// Buffer circular para almacenar logs
+#define LOG_BUFFER_SIZE 4096
+static char log_buffer[LOG_BUFFER_SIZE];
+static int log_buffer_index = 0;
+
+// Función para agregar logs al buffer circular
+static void add_to_log_buffer(const char *log_message) {
+    size_t len = strlen(log_message);
+    if (log_buffer_index + len >= LOG_BUFFER_SIZE) {
+        // Si el mensaje no cabe, movemos el índice al principio
+        log_buffer_index = 0;
+    }
+    strncpy(log_buffer + log_buffer_index, log_message, LOG_BUFFER_SIZE - log_buffer_index - 1);
+    log_buffer_index += len;
+    log_buffer[log_buffer_index++] = '\n';  // Agregamos un salto de línea
+    log_buffer[LOG_BUFFER_SIZE - 1] = '\0'; // Aseguramos que el buffer termine en null
+}
+
+// Función de callback para capturar logs
+static void log_output_func(const char *fmt, va_list args) {
+    char buf[256];
+    vsnprintf(buf, sizeof(buf), fmt, args);
+    add_to_log_buffer(buf);
+}
+
+
 static esp_err_t root_get_handler(httpd_req_t *req)
 {
-    char resp_str[256];
-    snprintf(resp_str, sizeof(resp_str),
-             "VIN del vehiculo: %s\nVIN de la columna: %s",
-             vin_vehiculo, vin_columna);
+    char *resp_str = malloc(LOG_BUFFER_SIZE + 512); // Aumentamos el tamaño del buffer
+    if (resp_str == NULL) {
+        ESP_LOGE(WEBSERVER_TAG, "Failed to allocate memory for response");
+        return ESP_ERR_NO_MEM;
+    }
+
+    int written = snprintf(resp_str, LOG_BUFFER_SIZE + 512,
+             "VIN del vehiculo: %s\nVIN de la columna: %s\n\nLogs:\n%s",
+             vin_vehiculo, vin_columna, log_buffer);
+
+    if (written >= LOG_BUFFER_SIZE + 512) {
+        ESP_LOGW(WEBSERVER_TAG, "Response truncated");
+    }
+
     httpd_resp_send(req, resp_str, strlen(resp_str));
+    free(resp_str);
     return ESP_OK;
 }
 
@@ -88,6 +125,8 @@ void wifi_init_softap(void)
 
     ESP_LOGI(WEBSERVER_TAG, "wifi_init_softap finished. SSID:%s password:%s channel:%d",
              WIFI_SSID, WIFI_PASS, 1);
+
+    esp_log_set_vprintf(log_output_func);
 
     start_webserver();
 }
